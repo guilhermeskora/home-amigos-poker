@@ -1005,18 +1005,19 @@ function buildSessionPlayers(){
 
   // Leaders são recalculados globalmente por recomputeLeaders() após o save
 
-  const players = participants.map(name=>{
-    const prev     = getPrevPlayer(name);
-    const prevPts  = prev?.pts   || 0;
-    const prevReg  = prev?.reg   || 0;
-    const prevGanho= prev?.ganho || 0;
-    const prevVit  = prev?.vit   || 0;
-    const prevBolha= prev?.bolha || 0;
-    const prevLeader=prev?.leader|| 0;
+  // Jogadores que participaram hoje: acumula normalmente
+  const todaySet = new Set(participants);
+  const playersToday = participants.map(name=>{
+    const prev      = getPrevPlayer(name);
+    const prevPts   = prev?.pts    || 0;
+    const prevReg   = prev?.reg    || 0;
+    const prevGanho = prev?.ganho  || 0;
+    const prevVit   = prev?.vit    || 0;
+    const prevBolha = prev?.bolha  || 0;
+    const prevLeader= prev?.leader || 0;
 
     const ganhoHoje = prizeMap[name] || 0;
     const ptsHoje   = Math.round(ganhoHoje * 0.1);
-    const isLeader  = 0; // calculado por recomputeLeaders()
 
     return {
       name,
@@ -1025,11 +1026,17 @@ function buildSessionPlayers(){
       ganho:  prevGanho + ganhoHoje,
       vit:    prevVit   + (vitMap[name]||0),
       bolha:  prevBolha + (name===bolhaName ? 1 : 0),
-      leader: prevLeader + isLeader,
+      leader: prevLeader,
     };
   });
 
-  return players;
+  // Jogadores históricos que NÃO jogaram hoje: carrega acumulado sem alteração
+  const allPrev = cumSessions.length ? cumSessions[cumSessions.length-1].players : [];
+  const absentPlayers = allPrev
+    .filter(p => !todaySet.has(p.name))
+    .map(p => ({ ...p }));
+
+  return [...playersToday, ...absentPlayers];
 }
 
 // Mostra prévia antes de salvar
