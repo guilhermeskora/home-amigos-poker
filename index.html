@@ -1410,20 +1410,31 @@ function shareRanking(){
   ctx.fillText('♠ HOME POKER 2026', W/2, fy + 52);
 
   // ── exportar ──
-  canvas.toBlob(blob => {
-    const file = new File([blob], 'ranking-poker-2026.png', {type:'image/png'});
-    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-      navigator.share({ files:[file], title:'Ranking Poker Club 2026' }).catch(()=>downloadImg(canvas));
-    } else {
-      downloadImg(canvas);
+  // Converte para dataURL de forma síncrona para preservar o gesto do usuário no iOS
+  const dataURL = canvas.toDataURL('image/png');
+
+  // Tenta compartilhar como arquivo (funciona em Android e alguns iOS)
+  if(navigator.share && navigator.canShare){
+    // Converte dataURL para blob/File sem callback assíncrono
+    const byteStr = atob(dataURL.split(',')[1]);
+    const arr = new Uint8Array(byteStr.length);
+    for(let i=0;i<byteStr.length;i++) arr[i]=byteStr.charCodeAt(i);
+    const file = new File([arr], 'ranking-home-poker-2026.png', {type:'image/png'});
+    if(navigator.canShare({files:[file]})){
+      navigator.share({ files:[file], title:'Home Poker dos Amigos 2026' })
+        .catch(()=>downloadImg(dataURL));
+      return;
     }
-  }, 'image/png');
+  }
+
+  // Fallback: download direto
+  downloadImg(dataURL);
 }
 
-function downloadImg(canvas){
+function downloadImg(dataURL){
   const a = document.createElement('a');
-  a.href = canvas.toDataURL('image/png');
-  a.download = 'ranking-poker-2026.png';
+  a.href = dataURL;
+  a.download = 'ranking-home-poker-2026.png';
   a.click();
 }
 
