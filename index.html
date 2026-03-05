@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Poker Club 2026</title>
+<title>Home Poker dos Amigos 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -246,7 +246,7 @@ input.field,select.field{/* inherits global input styles */}
 <body>
 
 <nav>
-  <div class="logo">♠ POKER CLUB</div>
+  <div class="logo">♠ HOME POKER</div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="show('ranking',this)">Ranking</button>
     <button class="nav-tab" onclick="show('sessions',this)">Sessões</button>
@@ -257,7 +257,7 @@ input.field,select.field{/* inherits global input styles */}
 </nav>
 
 <div id="loading-overlay" style="position:fixed;inset:0;background:#141414;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
-  <div style="font-family:'Playfair Display',serif;font-size:2rem;color:var(--gold);">♠ POKER CLUB</div>
+  <div style="font-family:'Playfair Display',serif;font-size:2rem;color:var(--gold);">♠ HOME POKER</div>
   <div style="width:40px;height:40px;border:3px solid rgba(201,168,76,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
   <div style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);letter-spacing:2px;">CARREGANDO DADOS...</div>
 </div>
@@ -1003,9 +1003,7 @@ function buildSessionPlayers(){
     vitMap[n] = vitTxt==='—' ? 0 : parseFloat(vitTxt)||0;
   }
 
-  // Calcula quem é o líder da sessão (quem recebeu maior prêmio)
-  const maxPrize = Math.max(0, ...Object.values(prizeMap));
-  const leaders  = maxPrize>0 ? Object.keys(prizeMap).filter(n=>prizeMap[n]===maxPrize) : [];
+  // Leaders são recalculados globalmente por recomputeLeaders() após o save
 
   const players = participants.map(name=>{
     const prev     = getPrevPlayer(name);
@@ -1018,7 +1016,7 @@ function buildSessionPlayers(){
 
     const ganhoHoje = prizeMap[name] || 0;
     const ptsHoje   = Math.round(ganhoHoje * 0.1);
-    const isLeader  = leaders.includes(name) ? 1 : 0;
+    const isLeader  = 0; // calculado por recomputeLeaders()
 
     return {
       name,
@@ -1082,7 +1080,7 @@ function saveSession(){
 
   // Limpa presença
   sessPlayers=[]; sessCurDate=''; sessPhase='pre';
-  saveData(); renderAll();
+  recomputeLeaders(); saveData(); renderAll();
 
   // Reseta campos
   ['r-date','r-jackpot'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
@@ -1164,6 +1162,7 @@ function renderAll(){
 }
 
 loadData().then(()=>{
+  recomputeLeaders();
   setPhase(sessPhase);
   renderAll();
   document.getElementById('loading-overlay').style.display='none';
@@ -1226,7 +1225,7 @@ function shareRanking(){
   ctx.fillStyle = '#d4af37';
   ctx.font = 'bold 38px Georgia, serif';
   ctx.textAlign = 'center';
-  ctx.fillText('♠  POKER CLUB 2026', W/2, 60);
+  ctx.fillText('♠  HOME POKER DOS AMIGOS 2026', W/2, 60);
 
   // subtítulo
   ctx.fillStyle = '#aaa';
@@ -1385,7 +1384,7 @@ function shareRanking(){
   ctx.fillStyle = 'rgba(212,175,55,0.35)';
   ctx.font = '12px Arial,sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('♠ POKER CLUB 2026', W/2, fy + 52);
+  ctx.fillText('♠ HOME POKER 2026', W/2, fy + 52);
 
   // ── exportar ──
   canvas.toBlob(blob => {
@@ -1499,11 +1498,60 @@ function saveSessEdit(){
     sess.players[i].bolha = parseInt(bolhaEls[i].value)||0;
   });
 
+  recomputeLeaders();
   saveData();
   renderAll();
   closeSessEdit();
   const msgEl = document.getElementById('save-msg');
   if(msgEl){ msgEl.textContent='✓ Sessão corrigida e ranking atualizado!'; msgEl.style.color='var(--green)'; setTimeout(()=>msgEl.textContent='',3000); }
+}
+
+// ══════════════════════════════════════════════════════
+// RECALCULAR LÍDERES (quem estava no topo após cada sessão)
+// ══════════════════════════════════════════════════════
+function recomputeLeaders(){
+  // Para cada sessão i, determina quem lidera o ranking ACUMULADO até i.
+  // leader[player] += 1 para cada sessão em que ele estava no topo ao final.
+  // Zera o campo leader em todos os jogadores de todas as sessões primeiro,
+  // depois acumula da sessão 0 até a última.
+
+  // Coleta o total acumulado de cada jogador ao final de cada sessão
+  cumSessions.forEach((sess, i) => {
+    // Ordena jogadores dessa sessão por total (pts+reg) desc
+    const sorted = [...sess.players].sort((a,b)=>(b.pts+b.reg)-(a.pts+a.reg));
+    if(!sorted.length) return;
+    const maxTotal = sorted[0].pts + sorted[0].reg;
+    // Todos os jogadores com o mesmo total máximo são considerados líderes
+    const leaderNames = sorted.filter(p=>p.pts+p.reg===maxTotal).map(p=>p.name);
+
+    // Zera leader em todos desta sessão
+    sess.players.forEach(p => p.leader = 0);
+
+    // Marca quem era líder após a sessão anterior (i-1) como líder desta semana
+    // i.e. o líder acumulado AO FINAL de cada sessão
+    leaderNames.forEach(name => {
+      const player = sess.players.find(p=>p.name===name);
+      if(player){
+        // Conta quantas sessões consecutivas esta pessoa liderou até aqui
+        // Simplificado: leader = número de sessões (até esta) em que este jogador
+        // era o líder do ranking acumulado
+        // Vamos somar ao longo das sessões
+
+        // Pega o valor anterior (sessão i-1) para esse jogador
+        const prev = i>0 ? cumSessions[i-1].players.find(p=>p.name===name) : null;
+        const prevLeader = prev ? prev.leader : 0;
+        player.leader = prevLeader + 1;
+      }
+    });
+
+    // Para os não-líderes, mantém o acumulado anterior sem adicionar
+    sess.players.forEach(p => {
+      if(!leaderNames.includes(p.name)){
+        const prev = i>0 ? cumSessions[i-1].players.find(pp=>pp.name===p.name) : null;
+        p.leader = prev ? prev.leader : 0;
+      }
+    });
+  });
 }
 </script>
 
