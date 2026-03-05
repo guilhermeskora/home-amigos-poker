@@ -293,7 +293,13 @@ input.field,select.field{/* inherits global input styles */}
 <!-- ════════════════ SESSÕES ════════════════ -->
 
 <div class="section" id="s-sessions">
-  <div class="page-title">♦ Resultados por Sessão</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;">
+    <div style="font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:10px;flex:1;">
+      ♦ Resultados por Sessão
+      <span style="flex:1;height:1px;background:var(--border-gold);display:block;min-width:12px;"></span>
+    </div>
+    <button class="btn btn-gold btn-sm" onclick="openSessEdit()" style="flex-shrink:0;">✏️ Corrigir sessão</button>
+  </div>
   <div class="sess-tabs" id="sess-tabs"></div>
   <div class="view-toggle">
     <button class="vtoggle active" id="vt-daily" onclick="setView('daily')">Resultado do Dia</button>
@@ -308,6 +314,28 @@ input.field,select.field{/* inherits global input styles */}
   </table></div>
   <div id="jp-bar" class="jackpot-bar" style="display:none;">
     🃏 <span style="color:var(--gold);">JACKPOT ACUMULADO:</span> <span id="jp-val" style="font-weight:600;"></span> pts
+  </div>
+
+  <!-- Edição manual da sessão -->
+
+  <div id="sess-edit-panel" style="display:none;margin-top:20px;">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title" id="sess-edit-title">✏️ Editando sessão</span>
+        <button onclick="closeSessEdit()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;">✕</button>
+      </div>
+      <div class="card-body">
+        <div style="font-size:0.8rem;color:var(--muted);margin-bottom:14px;">
+          Edite os valores <strong style="color:var(--cream);">acumulados</strong> de cada jogador nesta sessão. O ranking será recalculado ao salvar.
+        </div>
+        <div id="sess-edit-rows"></div>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+          <button class="btn btn-green" onclick="saveSessEdit()">💾 Salvar Correção</button>
+          <button class="btn btn-sm" onclick="closeSessEdit()" style="background:rgba(255,255,255,0.07);color:#ccc;border:none;">Cancelar</button>
+        </div>
+        <div class="save-msg" id="sess-edit-msg"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -469,18 +497,23 @@ input.field,select.field{/* inherits global input styles */}
 
   </div>
 
-  <!-- Pontuação por jogador -->
+  <!-- Preview do resultado calculado -->
 
   <div class="card" style="margin-top:20px;">
-    <div class="card-head"><span class="card-title">Pontuação Acumulada dos Jogadores</span></div>
+    <div class="card-head">
+      <span class="card-title">Prévia do Resultado</span>
+      <span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;">calculado automaticamente</span>
+    </div>
     <div class="card-body">
-      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:16px;">Insira os valores <strong style="color:var(--cream);">acumulados</strong> até esta sessão (como na planilha).</div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 28px;gap:8px;margin-bottom:6px;">
-        <span class="label-sm">Jogador</span><span class="label-sm" style="text-align:center;">Pts acum.</span><span class="label-sm" style="text-align:center;">Reg acum.</span><span class="label-sm" style="text-align:center;">Ganho R$</span><span class="label-sm" style="text-align:center;">Vit.</span><span class="label-sm" style="text-align:center;">Bolhas</span><span></span>
+      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;">
+        Com base nos participantes da <strong style="color:var(--cream);">Presença</strong> e na <strong style="color:var(--cream);">Distribuição de Prêmios</strong>, o sistema calculará:
+        <br>• +5 pts (regularidade) para todos os participantes
+        <br>• +10% do prêmio em pts para os premiados
+        <br>• Bolha, vitórias e ganho financeiro conforme selecionado
       </div>
-      <div id="entries"></div>
-      <div style="display:flex;gap:10px;margin-top:12px;">
-        <button class="btn btn-gold btn-sm" onclick="addEntry()">+ Jogador</button>
+      <div id="preview-table"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+        <button class="btn btn-gold btn-sm" onclick="previewSession()">🔍 Calcular Prévia</button>
         <button class="btn btn-green" onclick="saveSession()">💾 Salvar Sessão</button>
       </div>
       <div class="save-msg" id="save-msg"></div>
@@ -930,111 +963,135 @@ function updatePendingBanner(){
 }
 
 // ══════════════════════════════════════════════════════
-// SALVAR SESSÃO
+// REGISTRO AUTOMÁTICO DE SESSÃO
 // ══════════════════════════════════════════════════════
-let entryN=0;
 
-// Retorna jogadores que participaram desta sessão específica (diário)
-// Se há uma sessão pendente em presença, usa esses. Caso contrário, usa os da última sessão registrada.
+// Retorna participantes da sessão aberta na presença (ou vazio)
 function getSessionParticipants(){
-  // Se há sessão aberta na presença, usa esses jogadores
   if(sessPlayers.length>0) return sessPlayers.map(p=>p.name);
-  // Senão, retorna todos os conhecidos (fallback)
   return allKnownPlayers();
 }
 
-function addEntry(){
-  entryN++;
-  const participants = getSessionParticipants();
-  const opts = participants.map(p=>`<option value="${p}">${cap(p)}</option>`).join('');
-
-  const div=document.createElement('div'); div.className='entry-row'; div.id='en-'+entryN;
-  div.innerHTML=`
-    <div class="fg">
-      <select onchange="autoFillPts(this)">
-        <option value="">Selecionar...</option>${opts}
-      </select>
-    </div>
-    <div class="fg"><input type="number" placeholder="0" title="Pts acumulados"></div>
-    <div class="fg"><input type="number" placeholder="5" title="Regularidade acumulada"></div>
-    <div class="fg"><input type="number" placeholder="0" title="Ganho R$ acumulado" onchange="autoFillPtsFromGanho(this)"></div>
-    <div class="fg"><select><option value="0">0</option><option value="0.5">0.5</option><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option><option value="2.5">2.5</option><option value="3">3</option></select></div>
-    <div class="fg"><select><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
-    <button class="btn-ghost" onclick="this.parentElement.remove()">×</button>
-  `;
-  document.getElementById('entries').appendChild(div);
+// Busca o último acumulado de um jogador
+function getPrevPlayer(name){
+  if(!cumSessions.length) return null;
+  const last = cumSessions[cumSessions.length-1];
+  return last.players.find(p=>p.name===name) || null;
 }
 
-// Placeholder — pode ser usado futuramente para autocompletar ao mudar o jogador
-function autoFillPts(sel){ /* reservado */ }
+// Monta o array de jogadores calculando automaticamente pts/reg/ganho/vit/bolha
+function buildSessionPlayers(){
+  const participants = getSessionParticipants();
+  const bolhaName    = (document.getElementById('bolha-select')?.value||'').toLowerCase();
 
-// Quando o ganho é inserido, sugere pts = acumulado_anterior + 10% do ganho do dia
-// e reg = acumulado_anterior + 5
-function autoFillPtsFromGanho(ganhoInput){
-  const row = ganhoInput.closest('.entry-row');
-  const name = row.querySelector('select').value;
-  if(!name) return;
-  const ganhoAcum = parseInt(ganhoInput.value)||0;
-  // Último acumulado do jogador
-  const lastSess = cumSessions[cumSessions.length-1];
-  const prevPlayer = lastSess.players.find(p=>p.name===name);
-  const prevGanho = prevPlayer ? prevPlayer.ganho : 0;
-  const prevPts   = prevPlayer ? prevPlayer.pts   : 0;
-  const prevReg   = prevPlayer ? prevPlayer.reg   : 0;
-  // Ganho do dia = acum novo - acum anterior
-  const ganhoHoje = ganhoAcum - prevGanho;
-  const ptsHoje   = Math.round(ganhoHoje * 0.1);
-  const ptsAcum   = prevPts + ptsHoje;
-  const regAcum   = prevReg + 5;
-  const inputs = row.querySelectorAll('input');
-  inputs[0].value = ptsAcum;  // pts acumulados
-  inputs[1].value = regAcum;  // reg acumulados
+  // Lê prêmios da tabela de distribuição
+  const prizeMap = {}; // name → ganhoHoje
+  const vitMap   = {}; // name → vitHoje
+  const nPremios = parseInt(document.getElementById('prize-rule-badge')
+    ?.textContent?.match(/(\d+) premiados/)?.[1]||0);
+
+  for(let pos=1; pos<=nPremios; pos++){
+    const nameEl  = document.getElementById('prize-player-'+pos);
+    const valEl   = document.getElementById('prize-val-'+pos);
+    const vitEl   = document.getElementById('vit-display-'+pos);
+    if(!nameEl||!valEl) continue;
+    const n = nameEl.value.toLowerCase();
+    if(!n) continue;
+    prizeMap[n] = parseFloat(valEl.value)||0;
+    // parse vitória do display: "1V" → 1, "0.5V" → 0.5
+    const vitTxt = vitEl?.textContent||'—';
+    vitMap[n] = vitTxt==='—' ? 0 : parseFloat(vitTxt)||0;
+  }
+
+  // Calcula quem é o líder da sessão (quem recebeu maior prêmio)
+  const maxPrize = Math.max(0, ...Object.values(prizeMap));
+  const leaders  = maxPrize>0 ? Object.keys(prizeMap).filter(n=>prizeMap[n]===maxPrize) : [];
+
+  const players = participants.map(name=>{
+    const prev     = getPrevPlayer(name);
+    const prevPts  = prev?.pts   || 0;
+    const prevReg  = prev?.reg   || 0;
+    const prevGanho= prev?.ganho || 0;
+    const prevVit  = prev?.vit   || 0;
+    const prevBolha= prev?.bolha || 0;
+    const prevLeader=prev?.leader|| 0;
+
+    const ganhoHoje = prizeMap[name] || 0;
+    const ptsHoje   = Math.round(ganhoHoje * 0.1);
+    const isLeader  = leaders.includes(name) ? 1 : 0;
+
+    return {
+      name,
+      pts:    prevPts   + ptsHoje,
+      reg:    prevReg   + 5,
+      ganho:  prevGanho + ganhoHoje,
+      vit:    prevVit   + (vitMap[name]||0),
+      bolha:  prevBolha + (name===bolhaName ? 1 : 0),
+      leader: prevLeader + isLeader,
+    };
+  });
+
+  return players;
+}
+
+// Mostra prévia antes de salvar
+function previewSession(){
+  const players = buildSessionPlayers();
+  const el = document.getElementById('preview-table');
+  if(!players.length){ el.innerHTML='<div style="color:var(--muted);font-size:0.85rem;">Adicione participantes na aba Presença primeiro.</div>'; return; }
+
+  let rows = players.map(p=>{
+    const prev   = getPrevPlayer(p.name);
+    const ganhoH = (p.ganho)-(prev?.ganho||0);
+    const ptsH   = p.pts-(prev?.pts||0);
+    const tag    = ganhoH>0?`<span style="color:var(--green);font-size:0.75rem;font-family:'DM Mono',monospace;">+R$ ${ganhoH.toLocaleString('pt-BR')} · +${ptsH}pts</span>`
+                           :`<span style="color:var(--muted);font-size:0.75rem;">+0 · +0pts</span>`;
+    const bolhaT = (p.bolha-(prev?.bolha||0))>0?' 🫧':'';
+    const vitT   = (p.vit-(prev?.vit||0))>0?` ⚡${p.vit-(prev?.vit||0)}V`:'';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;
+      background:var(--surface3);border-radius:8px;margin-bottom:5px;">
+      <span style="font-weight:500;">${cap(p.name)}${bolhaT}${vitT}</span>
+      <span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">${tag}
+        <span style="font-size:0.7rem;color:var(--muted);">acum: ${p.pts+p.reg}pts · R$ ${p.ganho.toLocaleString('pt-BR')}</span>
+      </span>
+    </div>`;
+  });
+  el.innerHTML = rows.join('');
 }
 
 function saveSession(){
-  const dateVal=document.getElementById('r-date').value;
-  const jp=parseInt(document.getElementById('r-jackpot').value)||null;
-
-  // pote final do breakdown (líquido)
-  const mesas  =parseInt(document.getElementById('r-mesas').value)||1;
-  const mesaVal=parseFloat(document.getElementById('r-mesa-val').value)||DEFAULT_MESA;
-  const buyin  =parseFloat(document.getElementById('r-buyin').value)||DEFAULT_BUYIN;
-  const rebuy  =parseFloat(document.getElementById('r-rebuy').value)||DEFAULT_REBUY;
-  const taxa   =parseFloat(document.getElementById('r-taxa').value)||DEFAULT_TAXA;
-  const nEntry =parseInt(document.getElementById('r-entries').value)||0;
-  const nRebuy =parseInt(document.getElementById('r-rebuys').value)||0;
-  const potBruto=nEntry*buyin+nRebuy*rebuy;
-  const pot=potBruto; // guardamos o bruto; o líquido é exibido no breakdown
+  const dateVal = document.getElementById('r-date').value;
+  const jp      = parseInt(document.getElementById('r-jackpot').value)||null;
+  const nEntry  = parseInt(document.getElementById('r-entries').value)||0;
+  const nRebuy  = parseInt(document.getElementById('r-rebuys').value)||0;
+  const buyin   = parseFloat(document.getElementById('r-buyin').value)||DEFAULT_BUYIN;
+  const rebuy   = parseFloat(document.getElementById('r-rebuy').value)||DEFAULT_REBUY;
+  const pot     = nEntry*buyin + nRebuy*rebuy;
 
   if(!dateVal){ msg('⚠ Defina a data.','var(--red)'); return; }
 
-  const rows=document.getElementById('entries').querySelectorAll('.entry-row');
-  const players=[];
-  rows.forEach(row=>{
-    const name=row.querySelector('select').value;
-    const inputs=row.querySelectorAll('input');
-    const selects=row.querySelectorAll('select');
-    const pts=parseInt(inputs[0].value)||0, reg=parseInt(inputs[1].value)||5;
-    const ganho=parseInt(inputs[2].value)||0;
-    const vit=parseFloat(selects[1].value)||0, bolha=parseInt(selects[2].value)||0;
-    if(name) players.push({name,pts,reg,ganho,vit,bolha,leader:0});
-  });
-  if(!players.length){ msg('⚠ Adicione jogadores.','var(--red)'); return; }
+  const participants = getSessionParticipants();
+  if(!participants.length){ msg('⚠ Adicione participantes na aba Presença.','var(--red)'); return; }
 
-  const [y,m,d]=dateVal.split('-');
+  const players = buildSessionPlayers();
+  if(!players.length){ msg('⚠ Nenhum jogador calculado.','var(--red)'); return; }
+
+  const [y,m,d] = dateVal.split('-');
   cumSessions.push({date:`${d}/${m}`,fullDate:dateVal,pot,jackpot:jp,players});
-  curSess=cumSessions.length-1;
+  curSess = cumSessions.length-1;
 
-  // Limpa sessão pendente
+  // Limpa presença
   sessPlayers=[]; sessCurDate=''; sessPhase='pre';
   saveData(); renderAll();
-  document.getElementById('entries').innerHTML='';
-  ['r-date','r-entries','r-rebuys','r-jackpot'].forEach(id=>document.getElementById(id).value='');
+
+  // Reseta campos
+  ['r-date','r-jackpot'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   document.getElementById('r-entries').value=0;
   document.getElementById('r-rebuys').value=0;
   document.getElementById('breakdown').innerHTML='<div class="row"><span style="color:var(--muted);">—</span><span>—</span></div>';
   document.getElementById('prize-body').innerHTML='';
-  msg('✓ Sessão registrada com sucesso!','var(--green)');
+  document.getElementById('preview-table').innerHTML='';
+  msg('✓ Sessão registrada e ranking atualizado!','var(--green)');
 }
 
 function msg(txt,color){const el=document.getElementById('save-msg');el.textContent=txt;el.style.color=color;setTimeout(()=>el.textContent='',3500);}
@@ -1393,6 +1450,60 @@ function clearPresence(){
   setPhase('pre');
   renderPresence();
   updatePendingBanner();
+}
+
+// ══════════════════════════════════════════════════════
+// EDIÇÃO MANUAL DE SESSÃO
+// ══════════════════════════════════════════════════════
+function openSessEdit(){
+  const sess = cumSessions[curSess];
+  document.getElementById('sess-edit-title').textContent = `✏️ Editando sessão ${sess.date}`;
+  const rows = document.getElementById('sess-edit-rows');
+  rows.innerHTML = '';
+
+  sess.players.forEach((p,i)=>{
+    const div = document.createElement('div');
+    div.style.cssText = 'display:grid;grid-template-columns:1.5fr repeat(5,1fr);gap:8px;margin-bottom:8px;align-items:center;';
+    div.innerHTML = `
+      <div style="font-weight:500;font-size:0.88rem;padding:8px 0;">${cap(p.name)}</div>
+      <div class="fg"><label>Pts acum.</label><input type="number" class="edit-pts" value="${p.pts}" data-idx="${i}"></div>
+      <div class="fg"><label>Reg acum.</label><input type="number" class="edit-reg" value="${p.reg}" data-idx="${i}"></div>
+      <div class="fg"><label>Ganho R$</label><input type="number" class="edit-ganho" value="${p.ganho}" data-idx="${i}"></div>
+      <div class="fg"><label>Vitórias</label><input type="number" step="0.5" class="edit-vit" value="${p.vit}" data-idx="${i}"></div>
+      <div class="fg"><label>Bolhas</label><input type="number" class="edit-bolha" value="${p.bolha}" data-idx="${i}"></div>
+    `;
+    rows.appendChild(div);
+  });
+
+  document.getElementById('sess-edit-panel').style.display = 'block';
+  document.getElementById('sess-edit-panel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function closeSessEdit(){
+  document.getElementById('sess-edit-panel').style.display = 'none';
+}
+
+function saveSessEdit(){
+  const sess = cumSessions[curSess];
+  const ptsEls   = document.querySelectorAll('.edit-pts');
+  const regEls   = document.querySelectorAll('.edit-reg');
+  const ganhoEls = document.querySelectorAll('.edit-ganho');
+  const vitEls   = document.querySelectorAll('.edit-vit');
+  const bolhaEls = document.querySelectorAll('.edit-bolha');
+
+  ptsEls.forEach((el,i)=>{
+    sess.players[i].pts   = parseFloat(el.value)||0;
+    sess.players[i].reg   = parseFloat(regEls[i].value)||0;
+    sess.players[i].ganho = parseFloat(ganhoEls[i].value)||0;
+    sess.players[i].vit   = parseFloat(vitEls[i].value)||0;
+    sess.players[i].bolha = parseInt(bolhaEls[i].value)||0;
+  });
+
+  saveData();
+  renderAll();
+  closeSessEdit();
+  const msgEl = document.getElementById('save-msg');
+  if(msgEl){ msgEl.textContent='✓ Sessão corrigida e ranking atualizado!'; msgEl.style.color='var(--green)'; setTimeout(()=>msgEl.textContent='',3000); }
 }
 </script>
 
