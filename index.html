@@ -11,7 +11,7 @@
     --bg:#141414;--surface:#1e1e1e;--surface2:#252525;--surface3:#2e2e2e;
     --border:rgba(255,255,255,0.12);--border-gold:rgba(212,175,55,0.45);
     --gold:#d4af37;--gold-light:#f0cc55;--green:#3dab6e;--red:#e05040;
-    --cream:#f0ead8;--muted:#9a9a9a;--nav-h:108px;
+    --cream:#f0ead8;--muted:#9a9a9a;--nav-h:120px;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--cream);font-family:'DM Sans',sans-serif;min-height:100vh;}
@@ -35,11 +35,11 @@ overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
 .nav-tabs::-webkit-scrollbar{display:none;}
 .nav-tab{
 padding:7px 15px;border:none;background:transparent;
-color:#888;font-family:‘DM Sans’,sans-serif;font-size:0.82rem;font-weight:500;
+color:#ddd !important;-webkit-text-fill-color:#ddd !important;font-family:‘DM Sans’,sans-serif;font-size:0.82rem;font-weight:500;
 cursor:pointer;border-radius:8px;transition:all 0.18s;white-space:nowrap;
 -webkit-tap-highlight-color:transparent;flex-shrink:0;
 }
-.nav-tab.active{background:var(–gold);color:#111;font-weight:700;}
+.nav-tab.active{background:var(–gold) !important;color:#111 !important;font-weight:700;-webkit-text-fill-color:#111 !important;}
 .nav-tab:hover:not(.active){color:#ddd;background:rgba(255,255,255,0.07);}
 
 @media(min-width:640px){
@@ -50,7 +50,7 @@ nav{flex-direction:row;align-items:center;padding:12px 28px;gap:12px;}
 /* push content below fixed nav */
 body{padding-top:var(–nav-h);}
 
-.section{display:none;padding:20px 16px;max-width:1100px;margin:0 auto;}
+.section{display:none;padding:28px 16px 48px;max-width:1100px;margin:0 auto;}
 @media(min-width:640px){.section{padding:28px 24px;}}
 .section.active{display:block;}
 
@@ -193,8 +193,8 @@ select.pick{margin-top:8px;}
 
 /* BUTTONS */
 .btn{padding:10px 22px;border:none;border-radius:9px;font-family:‘DM Sans’,sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;transition:all 0.2s;}
-.btn-gold{background:var(–gold);color:#111;}
-.btn-green{background:var(–green);color:#fff;}
+.btn-gold{background:var(–gold);color:#111 !important;-webkit-text-fill-color:#111 !important;font-weight:700;border:none;}
+.btn-green{background:#27a85f;color:#fff !important;-webkit-text-fill-color:#fff !important;font-weight:700;border:none;}
 .btn-sm{padding:7px 14px;font-size:0.78rem;}
 .btn-ghost-sm{width:24px;height:24px;padding:0;background:rgba(217,95,75,0.12);border:1px solid rgba(217,95,75,0.2);border-radius:5px;color:var(–red);font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .btn-gold:hover{background:var(–gold-light);}
@@ -272,7 +272,15 @@ input.field,select.field{/* inherits global input styles */}
     <div style="display:inline-block;margin-top:12px;padding:5px 16px;border:1px solid var(--border-gold);border-radius:20px;font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--gold-light);letter-spacing:2px;" id="season-badge">⬤ EM ANDAMENTO</div>
   </div>
   <div class="stats-row" id="stats-row"></div>
-  <div class="page-title">♠ Classificação Geral Acumulada</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;">
+    <div style="font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+      ♠ Classificação Geral
+      <span style="flex:1;height:1px;background:var(--border-gold);display:block;min-width:12px;"></span>
+    </div>
+    <button class="btn btn-gold btn-sm" onclick="shareRanking()" style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+      📤 Compartilhar
+    </button>
+  </div>
   <div class="table-wrap"><table class="ranking-table">
     <thead><tr>
       <th>Pos · Atleta</th><th>Pontuação</th><th>Regularidade</th><th>Total</th>
@@ -419,7 +427,7 @@ input.field,select.field{/* inherits global input styles */}
         <div class="grid3" style="margin-bottom:14px;">
           <div class="fg"><label>Buy-in (R$)</label><input type="number" id="r-buyin" class="field" value="180" onchange="calcPot()"></div>
           <div class="fg"><label>Rebuy (R$)</label><input type="number" id="r-rebuy" class="field" value="100" onchange="calcPot()"></div>
-          <div class="fg"><label>Taxa/entrada (R$)</label><input type="number" id="r-taxa" class="field" value="10" onchange="calcPot()"></div>
+          <div class="fg"><label>Taxa/entrada (R$)</label><input type="number" id="r-taxa" class="field" value="8" onchange="calcPot()"></div>
         </div>
         <div class="grid3" style="margin-bottom:14px;">
           <div class="fg"><label>Entradas</label><input type="number" id="r-entries" class="field" value="0" onchange="calcPot()"></div>
@@ -489,7 +497,7 @@ input.field,select.field{/* inherits global input styles */}
 // ══════════════════════════════════════════════════════
 const DEFAULT_BUYIN   = 180;
 const DEFAULT_REBUY   = 100;
-const DEFAULT_TAXA    = 10;   // por entrada (5 jackpot + 5 reserva)
+const DEFAULT_TAXA    = 8;    // por entrada (5 jackpot + 3 reserva)
 const DEFAULT_MESA    = 350;
 
 // ══════════════════════════════════════════════════════
@@ -823,7 +831,7 @@ function calcPot(){
   const descMesas   = mesas*mesaVal;
   const descTaxa    = nEntry*taxa;  // apenas entradas
   const descJackpot = nEntry*5;
-  const descReserva = nEntry*5;
+  const descReserva = nEntry*3;
   const potLiquido  = bruto - descMesas - descTaxa;
 
   const bd=document.getElementById('breakdown');
@@ -835,7 +843,7 @@ function calcPot(){
     <div class="row"><span class="neg">− Mesas (${mesas} × R$ ${mesaVal})</span><span class="neg">− R$ ${descMesas.toLocaleString('pt-BR')}</span></div>
     <div class="row"><span class="neg">− Taxa por entrada (${nEntry} × R$ ${taxa})</span><span class="neg">− R$ ${descTaxa.toLocaleString('pt-BR')}</span></div>
     <div class="row" style="font-size:0.72rem;color:var(--muted);padding-left:12px;"><span>↳ Jackpot (R$ 5/entrada)</span><span>R$ ${descJackpot.toLocaleString('pt-BR')}</span></div>
-    <div class="row" style="font-size:0.72rem;color:var(--muted);padding-left:12px;"><span>↳ Fundo reserva (R$ 5/entrada)</span><span>R$ ${descReserva.toLocaleString('pt-BR')}</span></div>
+    <div class="row" style="font-size:0.72rem;color:var(--muted);padding-left:12px;"><span>↳ Fundo reserva (R$ 3/entrada)</span><span>R$ ${descReserva.toLocaleString('pt-BR')}</span></div>
     <div class="row total"><span>Pote líquido para premiação</span><span>R$ ${potLiquido.toLocaleString('pt-BR')}</span></div>
   `;
 
@@ -1094,6 +1102,55 @@ loadData().then(()=>{
   renderAll();
   document.getElementById('loading-overlay').style.display='none';
 });
+
+// ── COMPARTILHAR RANKING ──────────────────────────────
+function shareRanking(){
+  const last = cumSessions[cumSessions.length-1];
+  const sorted = [...last.players].sort((a,b)=>(b.pts+b.reg)-(a.pts+a.reg));
+  const medals = ['🥇','🥈','🥉'];
+  const date = new Date().toLocaleDateString('pt-BR');
+
+  let txt = '';
+  txt += '♠ *POKER CLUB 2026*\n';
+  txt += `📅 ${date} · ${cumSessions.length} sessões\n`;
+  txt += '━━━━━━━━━━━━━━━━━━━━\n';
+
+  sorted.forEach((p, i) => {
+    const pos  = i + 1;
+    const icon = medals[i] || `${pos}.`;
+    const total = p.pts + p.reg;
+    const ganho = p.ganho > 0 ? ` · R$ ${p.ganho.toLocaleString('pt-BR')}` : '';
+    const vit   = p.vit > 0   ? ` ⚡${p.vit}V` : '';
+    const bolha = p.bolha > 0 ? ' 💀' : '';
+    const lider = p.leader > 0 ? ` ★${p.leader}×` : '';
+    txt += `${icon} *${cap(p.name)}* — ${total}pts${ganho}${vit}${lider}${bolha}\n`;
+  });
+
+  txt += '━━━━━━━━━━━━━━━━━━━━\n';
+  txt += `💰 Prêmio acumulado: *R$ ${last.pot.toLocaleString('pt-BR')}*\n`;
+  txt += `🃏 ${sorted[0]?cap(sorted[0].name):''} lidera a temporada`;
+
+  // Try native share (mobile), fallback to clipboard
+  if(navigator.share){
+    navigator.share({ text: txt }).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(txt).then(()=>{
+      alert('Ranking copiado! Cole no WhatsApp.');
+    }).catch(()=>{
+      // last resort: show in textarea
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80vw;height:60vh;z-index:9999;background:#2a2a2a;color:#fff;padding:12px;border-radius:10px;font-size:0.85rem;';
+      document.body.appendChild(ta);
+      ta.select();
+      const close = document.createElement('button');
+      close.textContent = '✕ Fechar';
+      close.style.cssText = 'position:fixed;top:calc(50% - 30vh - 40px);left:50%;transform:translateX(-50%);z-index:9999;background:var(--gold);color:#111;border:none;padding:8px 20px;border-radius:8px;font-weight:700;cursor:pointer;';
+      close.onclick = ()=>{ document.body.removeChild(ta); document.body.removeChild(close); };
+      document.body.appendChild(close);
+    });
+  }
+}
 </script>
 
 </body>
