@@ -331,9 +331,13 @@ input.field,select.field{/* inherits global input styles */}
       <label>Valor rebuy (R$)</label>
       <input type="number" id="rebuy-val" class="field" value="100" onchange="renderPresence()">
     </div>
-    <div style="display:flex;gap:8px;align-self:flex-end;padding-bottom:1px;">
+    <div style="display:flex;gap:8px;align-self:flex-end;padding-bottom:1px;flex-wrap:wrap;">
       <button class="phase-btn phase-btn-pre" id="btn-pre" onclick="setPhase('pre')">Pré-jogo</button>
       <button class="phase-btn phase-btn-live" id="btn-live" onclick="setPhase('live')">▶ Jogo em Curso</button>
+      <button class="phase-btn" onclick="clearPresence()"
+        style="background:rgba(224,80,64,0.12);color:#e05040;border-color:rgba(224,80,64,0.3);">
+        🗑 Limpar sessão
+      </button>
     </div>
   </div>
 
@@ -1354,51 +1358,41 @@ function recalcVitorias(){
     vals.push(el ? parseFloat(el.value)||0 : 0);
   }
 
-  // agrupa por valor — quem tem o mesmo prêmio divide a vitória
-  // mas só conta como vitória quem está nas posições 1-3 E tem valor > 0
-  // Lógica: encontra o maior valor entre os 3 primeiros e verifica empates
-  const maxVal = Math.max(...vals.filter(v=>v>0));
-  if(maxVal <= 0){
-    for(let pos=1;pos<=3;pos++){
-      const el=document.getElementById('vit-display-'+pos);
-      if(el) el.textContent='—';
-    }
-    return;
+  // Apenas quem tem o MAIOR valor entre os 3 primeiros recebe vitória.
+  // Se houver empate no maior valor, divide: 2 empatados = 0.5V cada, 3 = 0.33V cada.
+  const maxVal = Math.max(...vals);
+  const vitMap = [0, 0, 0];
+
+  if(maxVal > 0){
+    const winners = vals.reduce((acc, v, i) => v === maxVal ? [...acc, i] : acc, []);
+    const share = Math.round((1 / winners.length) * 100) / 100;
+    winners.forEach(i => vitMap[i] = share);
   }
 
-  // conta quantos têm o valor máximo (empate no 1º)
-  // para 2º e 3º: verificar empate entre eles se diferente do 1º
-  // Regra simplificada: empate = mesmo valor entre posições consecutivas
-  const vitMap = [0, 0, 0]; // índices 0,1,2 = pos 1,2,3
-
-  // encontra grupos de empate
-  const used = [false,false,false];
-  let i = 0;
-  while(i < 3){
-    if(used[i]){ i++; continue; }
-    const v = vals[i];
-    if(v <= 0){ i++; continue; }
-    // encontra todos com mesmo valor a partir de i
-    const group = [i];
-    for(let j=i+1; j<3; j++){
-      if(!used[j] && vals[j] === v) group.push(j);
-    }
-    const share = parseFloat((1/group.length).toFixed(2));
-    // normaliza: 1/1=1, 1/2=0.5, 1/3=0.33
-    group.forEach(idx=>{ vitMap[idx]=share; used[idx]=true; });
-    i++;
-  }
-
-  for(let pos=1;pos<=3;pos++){
-    const el=document.getElementById('vit-display-'+pos);
+  for(let pos=1; pos<=3; pos++){
+    const el = document.getElementById('vit-display-'+pos);
     if(!el) continue;
-    const v=vitMap[pos-1];
-    if(v<=0){ el.textContent='—'; el.style.color='var(--muted)'; }
+    const v = vitMap[pos-1];
+    if(v <= 0){ el.textContent='—'; el.style.color='var(--muted)'; }
     else {
-      el.textContent = v===1 ? '1V' : v+'V';
+      el.textContent = v === 1 ? '1V' : v + 'V';
       el.style.color = 'var(--gold)';
     }
   }
+}
+
+// ── LIMPAR SESSÃO DE PRESENÇA ─────────────────────────
+function clearPresence(){
+  if(!sessPlayers.length && !sessCurDate){ return; }
+  if(!confirm('Limpar todos os jogadores e dados da sessão atual?')) return;
+  sessPlayers = [];
+  sessCurDate = '';
+  sessPhase   = 'pre';
+  document.getElementById('sess-date-input').value = '';
+  saveData();
+  setPhase('pre');
+  renderPresence();
+  updatePendingBanner();
 }
 </script>
 
