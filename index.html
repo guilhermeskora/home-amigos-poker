@@ -705,14 +705,10 @@ function renderRanking(){
     `;
     body.appendChild(tr);
   });
-  // Pote total = soma dos potes diários de cada sessão
-  const totalPot = cumSessions.reduce((sum, sess, i) => {
-    const prev = i > 0 ? cumSessions[i-1].pot : 0;
-    return sum + (sess.pot - prev);
-  }, 0);
-  const totalPlayers = Object.keys(
-    cumSessions.flatMap(s=>s.players).reduce((m,p)=>{m[p.name]=1;return m;},{})
-  ).length;
+  // Pote total = soma dos ganhos de todos os jogadores (valor mais recente de cada um)
+  const fullRank = buildFullRanking();
+  const totalPot = fullRank.reduce((sum, p) => sum + (p.ganho || 0), 0);
+  const totalPlayers = fullRank.length;
   document.getElementById('stats-row').innerHTML=`
     <div class="stat-card"><span class="stat-val">${cumSessions.length}</span><div class="stat-lbl">Sessões</div></div>
     <div class="stat-card"><span class="stat-val">${totalPlayers}</span><div class="stat-lbl">Atletas</div></div>
