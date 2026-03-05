@@ -8,22 +8,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:#111c15;--surface:#172210;--surface2:#1e2d18;
-    --border:rgba(255,255,255,0.08);--border-gold:rgba(201,168,76,0.25);
-    --gold:#c9a84c;--gold-light:#e8c96a;--green:#3dab6e;--red:#d95f4b;
-    --cream:#e8e0cc;--muted:#7a8c7e;
+    --bg:#0d1a10;--surface:#132016;--surface2:#1a2d1d;
+    --border:rgba(255,255,255,0.18);--border-gold:rgba(210,175,60,0.5);
+    --gold:#d4aa3a;--gold-light:#f0cc55;--green:#3dab6e;--red:#e05040;
+    --cream:#f2ead4;--muted:#a8bfad;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--cream);font-family:'DM Sans',sans-serif;min-height:100vh;}
 
-nav{display:flex;justify-content:space-between;align-items:center;padding:16px 36px;border-bottom:1px solid var(–border);background:var(–surface);position:sticky;top:0;z-index:100;}
-.logo{font-family:‘Playfair Display’,serif;font-size:1.25rem;font-weight:900;color:var(–gold);letter-spacing:2px;display:flex;align-items:center;gap:8px;}
-.nav-tabs{display:flex;gap:4px;background:rgba(0,0,0,0.2);padding:4px;border-radius:10px;}
-.nav-tab{padding:7px 18px;border:none;background:transparent;color:var(–muted);font-family:‘DM Sans’,sans-serif;font-size:0.84rem;font-weight:500;cursor:pointer;border-radius:7px;transition:all 0.2s;}
+nav{display:flex;flex-direction:column;gap:10px;padding:12px 16px;border-bottom:2px solid var(–border-gold);background:var(–surface);position:sticky;top:0;z-index:100;}
+.logo{font-family:‘Playfair Display’,serif;font-size:1.2rem;font-weight:900;color:var(–gold);letter-spacing:2px;display:flex;align-items:center;gap:8px;}
+.nav-tabs{display:flex;gap:4px;background:rgba(0,0,0,0.35);padding:4px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.nav-tabs::-webkit-scrollbar{display:none;}
+.nav-tab{padding:8px 14px;border:none;background:transparent;color:var(–muted);font-family:‘DM Sans’,sans-serif;font-size:0.82rem;font-weight:500;cursor:pointer;border-radius:7px;transition:all 0.2s;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
 .nav-tab.active{background:var(–gold);color:#111;font-weight:700;}
 .nav-tab:hover:not(.active){color:var(–cream);}
+@media(min-width:640px){nav{flex-direction:row;align-items:center;padding:14px 28px;gap:0;}}
 
-.section{display:none;padding:36px;max-width:1100px;margin:0 auto;}
+.section{display:none;padding:20px 16px;max-width:1100px;margin:0 auto;}
+@media(min-width:640px){.section{padding:32px 28px;}}
 .section.active{display:block;}
 
 .page-title{font-family:‘Playfair Display’,serif;font-size:1.4rem;font-weight:700;color:var(–gold);margin-bottom:24px;display:flex;align-items:center;gap:12px;}
@@ -31,15 +34,16 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:16px 3
 
 /* STATS */
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;}
-.stat-card{background:var(–surface2);border:1px solid var(–border);border-radius:12px;padding:18px 20px;text-align:center;}
+.stat-card{background:var(–surface2);border:1px solid var(–border);border-radius:12px;padding:18px 20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.35);}
 .stat-val{font-family:‘Playfair Display’,serif;font-size:1.8rem;font-weight:700;color:var(–gold);display:block;}
 .stat-lbl{font-size:0.72rem;color:var(–muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px;}
 
 /* TABLE */
-.ranking-table{width:100%;border-collapse:separate;border-spacing:0 5px;}
+.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.ranking-table{width:100%;min-width:560px;border-collapse:separate;border-spacing:0 5px;}
 .ranking-table thead th{font-family:‘DM Mono’,monospace;font-size:0.68rem;letter-spacing:1.5px;color:var(–muted);text-transform:uppercase;padding:6px 14px;text-align:left;font-weight:400;}
 .ranking-table thead th:not(:first-child){text-align:center;}
-.ranking-table tbody tr{background:var(–surface2);transition:all 0.15s;}
+.ranking-table tbody tr{background:var(–surface2);transition:all 0.15s;outline:1px solid rgba(255,255,255,0.06);}
 .ranking-table tbody tr:hover{background:#263520;}
 .ranking-table tbody tr.gold-row  {background:rgba(201,168,76,0.10);border-left:3px solid var(–gold);}
 .ranking-table tbody tr.silver-row{background:rgba(180,190,200,0.07);border-left:3px solid #9aabb8;}
@@ -69,7 +73,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:16px 3
 .jackpot-bar{margin-top:14px;padding:12px 18px;background:rgba(201,168,76,0.07);border:1px solid var(–border-gold);border-radius:8px;font-family:‘DM Mono’,monospace;font-size:0.82rem;}
 
 /* CARDS */
-.card{background:var(–surface2);border:1px solid var(–border);border-radius:14px;overflow:hidden;}
+.card{background:var(–surface2);border:1px solid var(–border);border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.4);}
 .card-head{padding:16px 22px;border-bottom:1px solid var(–border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
 .card-title{font-family:‘Playfair Display’,serif;font-size:1.05rem;color:var(–gold);font-weight:700;}
 .card-body{padding:20px 22px;}
@@ -190,13 +194,10 @@ select.field option{background:#172210;}
 ::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.25);border-radius:4px;}
 
 @media(max-width:768px){
-nav{padding:12px 16px;flex-wrap:wrap;gap:8px;}
-.section{padding:20px 16px;}
 .stats-row{grid-template-columns:1fr 1fr;}
 .presence-layout,.reg-layout{grid-template-columns:1fr;}
 .grid3{grid-template-columns:1fr;}
 .entry-row{grid-template-columns:1fr 1fr;}
-.nav-tabs{flex-wrap:wrap;justify-content:center;}
 }
 </style>
 
@@ -231,13 +232,13 @@ nav{padding:12px 16px;flex-wrap:wrap;gap:8px;}
   </div>
   <div class="stats-row" id="stats-row"></div>
   <div class="page-title">♠ Classificação Geral Acumulada</div>
-  <table class="ranking-table">
+  <div class="table-wrap"><table class="ranking-table">
     <thead><tr>
       <th>Pos · Atleta</th><th>Pontuação</th><th>Regularidade</th><th>Total</th>
       <th>Ganho R$</th><th>Vitórias</th><th>Bolhas</th><th>Sem. Líder</th>
     </tr></thead>
     <tbody id="ranking-body"></tbody>
-  </table>
+  </table></div>
 </div>
 
 <!-- ════════════════ SESSÕES ════════════════ -->
@@ -249,13 +250,13 @@ nav{padding:12px 16px;flex-wrap:wrap;gap:8px;}
     <button class="vtoggle active" id="vt-daily" onclick="setView('daily')">Resultado do Dia</button>
     <button class="vtoggle" id="vt-cumul" onclick="setView('cumul')">Acumulado até o Dia</button>
   </div>
-  <table class="ranking-table">
+  <div class="table-wrap"><table class="ranking-table">
     <thead><tr>
       <th>Pos · Atleta</th><th>Pontuação</th><th>Regularidade</th><th>Total</th>
       <th>Ganho R$</th><th>Vitória</th><th>Bolha</th>
     </tr></thead>
     <tbody id="sess-body"></tbody>
-  </table>
+  </table></div>
   <div id="jp-bar" class="jackpot-bar" style="display:none;">
     🃏 <span style="color:var(--gold);">JACKPOT ACUMULADO:</span> <span id="jp-val" style="font-weight:600;"></span> pts
   </div>
