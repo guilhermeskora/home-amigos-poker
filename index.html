@@ -668,9 +668,21 @@ function getDailyPlayers(idx){
 // ══════════════════════════════════════════════════════
 // RANKING
 // ══════════════════════════════════════════════════════
+function buildFullRanking(){
+  // Agrega TODOS os jogadores de TODAS as sessões.
+  // Para cada jogador usa o valor mais recente (última sessão em que aparece).
+  const map = {};
+  cumSessions.forEach(sess => {
+    sess.players.forEach(p => {
+      // Sempre sobrescreve com o valor mais recente
+      map[p.name] = { ...p };
+    });
+  });
+  return Object.values(map).sort((a,b)=>(b.pts+b.reg)-(a.pts+a.reg));
+}
+
 function renderRanking(){
-  const last=cumSessions[cumSessions.length-1];
-  const sorted=[...last.players].sort((a,b)=>(b.pts+b.reg)-(a.pts+a.reg));
+  const sorted = buildFullRanking();
   const body=document.getElementById('ranking-body'); body.innerHTML='';
   sorted.forEach((p,i)=>{
     const pos=i+1,total=p.pts+p.reg;
@@ -693,8 +705,14 @@ function renderRanking(){
     `;
     body.appendChild(tr);
   });
-  const totalPlayers=new Set(cumSessions.flatMap(s=>s.players.map(p=>p.name))).size;
-  const totalPot=last.pot;
+  // Pote total = soma dos potes diários de cada sessão
+  const totalPot = cumSessions.reduce((sum, sess, i) => {
+    const prev = i > 0 ? cumSessions[i-1].pot : 0;
+    return sum + (sess.pot - prev);
+  }, 0);
+  const totalPlayers = Object.keys(
+    cumSessions.flatMap(s=>s.players).reduce((m,p)=>{m[p.name]=1;return m;},{})
+  ).length;
   document.getElementById('stats-row').innerHTML=`
     <div class="stat-card"><span class="stat-val">${cumSessions.length}</span><div class="stat-lbl">Sessões</div></div>
     <div class="stat-card"><span class="stat-val">${totalPlayers}</span><div class="stat-lbl">Atletas</div></div>
@@ -974,9 +992,12 @@ function getSessionParticipants(){
 
 // Busca o último acumulado de um jogador
 function getPrevPlayer(name){
-  if(!cumSessions.length) return null;
-  const last = cumSessions[cumSessions.length-1];
-  return last.players.find(p=>p.name===name) || null;
+  // Procura da sessão mais recente para a mais antiga
+  for(let i = cumSessions.length-1; i >= 0; i--){
+    const p = cumSessions[i].players.find(p=>p.name===name);
+    if(p) return p;
+  }
+  return null;
 }
 
 // Monta o array de jogadores calculando automaticamente pts/reg/ganho/vit/bolha
@@ -1177,8 +1198,7 @@ loadData().then(()=>{
 
 // ── COMPARTILHAR RANKING (imagem canvas) ─────────────
 function shareRanking(){
-  const last   = cumSessions[cumSessions.length-1];
-  const sorted = [...last.players].sort((a,b)=>(b.pts+b.reg)-(a.pts+a.reg));
+  const sorted = buildFullRanking();
   const date   = new Date().toLocaleDateString('pt-BR');
 
   // ── dimensões ──
@@ -1517,46 +1537,34 @@ function saveSessEdit(){
 // RECALCULAR LÍDERES (quem estava no topo após cada sessão)
 // ══════════════════════════════════════════════════════
 function recomputeLeaders(){
-  // Para cada sessão i, determina quem lidera o ranking ACUMULADO até i.
-  // leader[player] += 1 para cada sessão em que ele estava no topo ao final.
-  // Zera o campo leader em todos os jogadores de todas as sessões primeiro,
-  // depois acumula da sessão 0 até a última.
+  // Para cada sessão i, constrói o ranking acumulado completo (todos os jogadores
+  // já vistos até i), determina quem lidera naquele ponto, e atribui +1 leader
+  // a esse(s) jogador(es) na sessão i.
+  // O campo leader em cada sessão representa o ACUMULADO de lideranças até aquela sessão.
 
-  // Coleta o total acumulado de cada jogador ao final de cada sessão
+  // Mapa de lideranças acumuladas por jogador (cresce sessão a sessão)
+  const leaderAccum = {};
+
   cumSessions.forEach((sess, i) => {
-    // Ordena jogadores dessa sessão por total (pts+reg) desc
-    const sorted = [...sess.players].sort((a,b)=>(b.pts+b.reg)-(a.pts+a.reg));
-    if(!sorted.length) return;
-    const maxTotal = sorted[0].pts + sorted[0].reg;
-    // Todos os jogadores com o mesmo total máximo são considerados líderes
-    const leaderNames = sorted.filter(p=>p.pts+p.reg===maxTotal).map(p=>p.name);
+    // Constrói snapshot completo até a sessão i
+    const snapshot = {};
+    for(let j = 0; j <= i; j++){
+      cumSessions[j].players.forEach(p => {
+        snapshot[p.name] = { pts: p.pts, reg: p.reg };
+      });
+    }
+    const totals = Object.entries(snapshot).map(([name, v]) => ({ name, total: v.pts + v.reg }));
+    const maxTotal = Math.max(...totals.map(t => t.total));
+    const leadersNow = totals.filter(t => t.total === maxTotal).map(t => t.name);
 
-    // Zera leader em todos desta sessão
-    sess.players.forEach(p => p.leader = 0);
-
-    // Marca quem era líder após a sessão anterior (i-1) como líder desta semana
-    // i.e. o líder acumulado AO FINAL de cada sessão
-    leaderNames.forEach(name => {
-      const player = sess.players.find(p=>p.name===name);
-      if(player){
-        // Conta quantas sessões consecutivas esta pessoa liderou até aqui
-        // Simplificado: leader = número de sessões (até esta) em que este jogador
-        // era o líder do ranking acumulado
-        // Vamos somar ao longo das sessões
-
-        // Pega o valor anterior (sessão i-1) para esse jogador
-        const prev = i>0 ? cumSessions[i-1].players.find(p=>p.name===name) : null;
-        const prevLeader = prev ? prev.leader : 0;
-        player.leader = prevLeader + 1;
-      }
+    // Incrementa líder acumulado para os líderes desta sessão
+    leadersNow.forEach(name => {
+      leaderAccum[name] = (leaderAccum[name] || 0) + 1;
     });
 
-    // Para os não-líderes, mantém o acumulado anterior sem adicionar
+    // Atualiza o campo leader em TODOS os jogadores desta sessão com o acumulado atual
     sess.players.forEach(p => {
-      if(!leaderNames.includes(p.name)){
-        const prev = i>0 ? cumSessions[i-1].players.find(pp=>pp.name===p.name) : null;
-        p.leader = prev ? prev.leader : 0;
-      }
+      p.leader = leaderAccum[p.name] || 0;
     });
   });
 }
