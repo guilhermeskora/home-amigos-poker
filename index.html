@@ -454,7 +454,7 @@ input.field,select.field{/* inherits global input styles */}
       <tbody id="prize-body"></tbody>
     </table>
     <div style="margin-top:12px;padding:10px 12px;background:rgba(217,95,75,0.07);border:1px solid rgba(217,95,75,0.2);border-radius:8px;display:flex;align-items:center;gap:10px;">
-      <span style="font-size:0.82rem;color:var(--muted);">💀 Bolha:</span>
+      <span style="font-size:0.82rem;color:var(--muted);">🫧 Bolha:</span>
       <select id="bolha-select" class="field" style="flex:1;padding:6px 10px;font-size:0.82rem;">
         <option value="">— selecionar —</option>
       </select>
@@ -645,7 +645,7 @@ function renderRanking(){
       <td><span class="pos ${pc}">${medal}</span><span class="pname" style="margin-left:8px;">${cap(p.name)}</span>
         ${p.vit>0?`<span class="badge b-win">⚡${p.vit}V</span>`:''}
         ${p.leader>0?`<span class="badge b-gold">★${p.leader}×</span>`:''}
-        ${p.bolha>0?`<span class="badge b-red">💀${p.bolha}</span>`:''}
+        ${p.bolha>0?`<span class="badge b-red">🫧${p.bolha}</span>`:''}
       </td>
       <td class="pts-sm">${p.pts}</td><td class="pts-sm">${p.reg}</td>
       <td class="pts-big">${total}</td>
@@ -700,7 +700,7 @@ function renderSessTable(){
       <td><span class="pos ${pc}">${medal}</span><span class="pname" style="margin-left:8px;">${cap(p.name)}</span>
         ${p.vit>0?`<span class="badge b-win">⚡Vit.</span>`:''}
         ${p.leader>0?`<span class="badge b-gold">★Líder</span>`:''}
-        ${p.bolha>0?`<span class="badge b-red">💀Bolha</span>`:''}
+        ${p.bolha>0?`<span class="badge b-red">🫧Bolha</span>`:''}
       </td>
       <td class="pts-sm">${p.pts||'—'}</td><td class="pts-sm">${p.reg}</td>
       <td class="pts-big">${total}</td>
@@ -874,17 +874,22 @@ function calcPrizes(potLiquido, nPlayers){
     const tr=document.createElement('tr');
     tr.className=pos===1?'prize-1':pos===2?'prize-2':pos===3?'prize-3':'';
     const medal=pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos+'º';
-    const vitOpts=pos<=3?`<select class="field" style="padding:5px 8px;font-size:0.8rem;width:80px;" id="vit-${pos}">
-      <option value="1">1</option><option value="0.5">0.5</option>
-    </select>`:'<span style="color:var(--muted);">—</span>';
+    // Coluna vitória: apenas 1º, 2º, 3º — read-only, calculado automaticamente
+    const vitCell = pos<=3
+      ? `<span id="vit-display-${pos}" style="font-family:'DM Mono',monospace;font-size:0.85rem;color:var(--gold);">—</span>`
+      : '<span style="color:var(--muted);">—</span>';
     tr.innerHTML=`
       <td><strong>${medal}</strong></td>
-      <td><select class="field" style="padding:5px 8px;font-size:0.8rem;" id="prize-player-${pos}">${playerOpts}</select></td>
-      <td><input class="prize-input" type="number" id="prize-val-${pos}" value="${Math.round(val)}"></td>
-      <td>${vitOpts}</td>
+      <td><select class="field" style="padding:5px 8px;font-size:0.8rem;" id="prize-player-${pos}"
+          onchange="recalcVitorias()">${playerOpts}</select></td>
+      <td><input class="prize-input" type="number" id="prize-val-${pos}" value="${Math.round(val)}"
+          oninput="recalcVitorias()"></td>
+      <td>${vitCell}</td>
     `;
     body.appendChild(tr);
   }
+  // calcula vitórias iniciais
+  setTimeout(recalcVitorias, 50);
 
   // bolha select
   const bs=document.getElementById('bolha-select');
@@ -1046,7 +1051,7 @@ function renderHistory(){
     const chips=daily.map((p,i)=>{
       const cls=i===0?'chip-1':i===1?'chip-2':i===2?'chip-3':'chip-n';
       const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':(i+1)+'. ';
-      const bolhaTag = p.bolha>0 ? ' 💀' : '';
+      const bolhaTag = p.bolha>0 ? ' 🫧' : '';
       return `<span class="chip ${cls}">${medal}${cap(p.name)}${p.ganho>0?' · R$ '+p.ganho.toLocaleString('pt-BR'):''}${bolhaTag}</span>`;
     }).join('');
 
@@ -1103,52 +1108,296 @@ loadData().then(()=>{
   document.getElementById('loading-overlay').style.display='none';
 });
 
-// ── COMPARTILHAR RANKING ──────────────────────────────
+// ── COMPARTILHAR RANKING (imagem canvas) ─────────────
 function shareRanking(){
-  const last = cumSessions[cumSessions.length-1];
+  const last   = cumSessions[cumSessions.length-1];
   const sorted = [...last.players].sort((a,b)=>(b.pts+b.reg)-(a.pts+a.reg));
-  const medals = ['🥇','🥈','🥉'];
-  const date = new Date().toLocaleDateString('pt-BR');
+  const date   = new Date().toLocaleDateString('pt-BR');
 
-  let txt = '';
-  txt += '♠ *POKER CLUB 2026*\n';
-  txt += `📅 ${date} · ${cumSessions.length} sessões\n`;
-  txt += '━━━━━━━━━━━━━━━━━━━━\n';
+  // ── dimensões ──
+  const W        = 800;
+  const PADDING  = 36;
+  const ROW_H    = 48;
+  const HEADER_H = 160;
+  const FOOTER_H = 72;
+  const H        = HEADER_H + sorted.length * ROW_H + FOOTER_H + PADDING;
 
+  const canvas = document.createElement('canvas');
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // ── helpers ──
+  function rr(x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+  }
+
+  // ── fundo principal ──
+  const bgGrad = ctx.createLinearGradient(0,0,0,H);
+  bgGrad.addColorStop(0,'#181818');
+  bgGrad.addColorStop(1,'#0f0f0f');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0,0,W,H);
+
+  // borda dourada
+  ctx.strokeStyle = 'rgba(212,175,55,0.5)';
+  ctx.lineWidth = 2;
+  rr(2,2,W-4,H-4,16);
+  ctx.stroke();
+
+  // ── cabeçalho ──
+  // faixa dourada topo
+  const hGrad = ctx.createLinearGradient(0,0,W,0);
+  hGrad.addColorStop(0,'#1a1500');
+  hGrad.addColorStop(0.5,'#2e2400');
+  hGrad.addColorStop(1,'#1a1500');
+  ctx.fillStyle = hGrad;
+  rr(2,2,W-4,HEADER_H-10,14);
+  ctx.fill();
+
+  // título
+  ctx.fillStyle = '#d4af37';
+  ctx.font = 'bold 38px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('♠  POKER CLUB 2026', W/2, 60);
+
+  // subtítulo
+  ctx.fillStyle = '#aaa';
+  ctx.font = '18px Arial, sans-serif';
+  ctx.fillText('RANKING DA TEMPORADA', W/2, 92);
+
+  // linha separadora dourada
+  ctx.strokeStyle = 'rgba(212,175,55,0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PADDING, 108); ctx.lineTo(W-PADDING, 108); ctx.stroke();
+
+  // data + sessões
+  ctx.fillStyle = '#ccc';
+  ctx.font = '15px Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`📅 ${date}`, PADDING, 132);
+  ctx.textAlign = 'right';
+  ctx.fillText(`${cumSessions.length} sessões · ${sorted.length} atletas`, W-PADDING, 132);
+
+  // ── cabeçalho da tabela ──
+  const colY = HEADER_H + 8;
+  ctx.fillStyle = 'rgba(212,175,55,0.12)';
+  ctx.fillRect(PADDING, colY - 6, W - PADDING*2, 32);
+
+  ctx.fillStyle = '#d4af37';
+  ctx.font = 'bold 13px Arial, sans-serif';
+  ctx.textAlign = 'left';
+
+  // colunas: pos, nome, pts, reg, total, ganho
+  const cols = {
+    pos:   PADDING + 12,
+    nome:  PADDING + 72,
+    pts:   W - 340,
+    reg:   W - 260,
+    total: W - 180,
+    ganho: W - 80,
+  };
+
+  ctx.fillText('POS',   cols.pos,  colY+14);
+  ctx.fillText('ATLETA',cols.nome, colY+14);
+  ctx.textAlign = 'center';
+  ctx.fillText('PTS',   cols.pts,  colY+14);
+  ctx.fillText('REG',   cols.reg,  colY+14);
+  ctx.fillText('TOTAL', cols.total,colY+14);
+  ctx.textAlign = 'right';
+  ctx.fillText('GANHO R$', cols.ganho, colY+14);
+
+  // ── linhas dos jogadores ──
   sorted.forEach((p, i) => {
+    const y    = HEADER_H + 40 + i * ROW_H;
     const pos  = i + 1;
-    const icon = medals[i] || `${pos}.`;
-    const total = p.pts + p.reg;
-    const ganho = p.ganho > 0 ? ` · R$ ${p.ganho.toLocaleString('pt-BR')}` : '';
-    const vit   = p.vit > 0   ? ` ⚡${p.vit}V` : '';
-    const bolha = p.bolha > 0 ? ' 💀' : '';
-    const lider = p.leader > 0 ? ` ★${p.leader}×` : '';
-    txt += `${icon} *${cap(p.name)}* — ${total}pts${ganho}${vit}${lider}${bolha}\n`;
+    const total= p.pts + p.reg;
+    const even = i % 2 === 0;
+
+    // fundo linha
+    if(pos === 1){
+      ctx.fillStyle = 'rgba(212,175,55,0.13)';
+    } else if(pos === 2){
+      ctx.fillStyle = 'rgba(180,190,210,0.07)';
+    } else if(pos === 3){
+      ctx.fillStyle = 'rgba(190,130,70,0.07)';
+    } else {
+      ctx.fillStyle = even ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.15)';
+    }
+    ctx.fillRect(PADDING, y, W - PADDING*2, ROW_H - 4);
+
+    // barra lateral colorida top3
+    if(pos <= 3){
+      const barColors = ['#d4af37','#9aabb8','#b88a50'];
+      ctx.fillStyle = barColors[i];
+      ctx.fillRect(PADDING, y, 4, ROW_H - 4);
+    }
+
+    const textY = y + ROW_H/2 + 1;
+
+    // posição
+    const posColors = ['#d4af37','#9aabb8','#b88a50'];
+    ctx.fillStyle = pos <= 3 ? posColors[i] : '#888';
+    ctx.font = pos <= 3 ? 'bold 17px Georgia,serif' : '15px Arial,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(pos <= 3 ? ['1º','2º','3º'][i] : `${pos}º`, cols.pos + 14, textY + 5);
+
+    // nome
+    ctx.fillStyle = '#f0ead8';
+    ctx.font = pos <= 3 ? 'bold 17px Arial,sans-serif' : '15px Arial,sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(cap(p.name), cols.nome, textY + 5);
+
+    // badges
+    let bx = cols.nome + ctx.measureText(cap(p.name)).width + 8;
+    if(p.vit > 0){
+      ctx.fillStyle = 'rgba(61,171,110,0.8)';
+      rr(bx, textY-10, 34, 18, 5); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
+      ctx.fillText(`⚡${p.vit}V`, bx+17, textY+3);
+      bx += 40;
+    }
+    if(p.leader > 0){
+      ctx.fillStyle = 'rgba(212,175,55,0.7)';
+      rr(bx, textY-10, 34, 18, 5); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
+      ctx.fillText(`★${p.leader}×`, bx+17, textY+3);
+      bx += 40;
+    }
+    if(p.bolha > 0){
+      ctx.fillStyle = 'rgba(224,80,64,0.7)';
+      rr(bx, textY-10, 28, 18, 5); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('🫧', bx+14, textY+4);
+    }
+
+    // pontos
+    ctx.fillStyle = pos === 1 ? '#d4af37' : '#ddd';
+    ctx.font = '15px Arial,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.pts || '—', cols.pts, textY + 5);
+    ctx.fillText(p.reg,        cols.reg,  textY + 5);
+
+    // total em destaque
+    ctx.fillStyle = pos === 1 ? '#d4af37' : '#f0ead8';
+    ctx.font = pos <= 3 ? 'bold 17px Georgia,serif' : 'bold 15px Arial,sans-serif';
+    ctx.fillText(total, cols.total, textY + 5);
+
+    // ganho
+    ctx.fillStyle = p.ganho > 0 ? '#3dab6e' : '#666';
+    ctx.font = '14px Arial,sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(p.ganho > 0 ? 'R$ '+p.ganho.toLocaleString('pt-BR') : '—', cols.ganho, textY + 5);
+
+    // divisor
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(PADDING, y + ROW_H - 4);
+    ctx.lineTo(W - PADDING, y + ROW_H - 4);
+    ctx.stroke();
   });
 
-  txt += '━━━━━━━━━━━━━━━━━━━━\n';
-  txt += `💰 Prêmio acumulado: *R$ ${last.pot.toLocaleString('pt-BR')}*\n`;
-  txt += `🃏 ${sorted[0]?cap(sorted[0].name):''} lidera a temporada`;
+  // ── rodapé ──
+  const fy = HEADER_H + 40 + sorted.length * ROW_H + 16;
 
-  // Try native share (mobile), fallback to clipboard
-  if(navigator.share){
-    navigator.share({ text: txt }).catch(()=>{});
-  } else {
-    navigator.clipboard.writeText(txt).then(()=>{
-      alert('Ranking copiado! Cole no WhatsApp.');
-    }).catch(()=>{
-      // last resort: show in textarea
-      const ta = document.createElement('textarea');
-      ta.value = txt;
-      ta.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80vw;height:60vh;z-index:9999;background:#2a2a2a;color:#fff;padding:12px;border-radius:10px;font-size:0.85rem;';
-      document.body.appendChild(ta);
-      ta.select();
-      const close = document.createElement('button');
-      close.textContent = '✕ Fechar';
-      close.style.cssText = 'position:fixed;top:calc(50% - 30vh - 40px);left:50%;transform:translateX(-50%);z-index:9999;background:var(--gold);color:#111;border:none;padding:8px 20px;border-radius:8px;font-weight:700;cursor:pointer;';
-      close.onclick = ()=>{ document.body.removeChild(ta); document.body.removeChild(close); };
-      document.body.appendChild(close);
-    });
+  ctx.strokeStyle = 'rgba(212,175,55,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PADDING, fy); ctx.lineTo(W-PADDING, fy); ctx.stroke();
+
+  ctx.fillStyle = '#d4af37';
+  ctx.font = 'bold 16px Arial,sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`💰 Prêmio acumulado: R$ ${last.pot.toLocaleString('pt-BR')}`, PADDING, fy + 28);
+
+  ctx.fillStyle = '#888';
+  ctx.font = '13px Arial,sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`🏆 Líder: ${sorted[0]?cap(sorted[0].name):'—'}`, W-PADDING, fy + 28);
+
+  ctx.fillStyle = 'rgba(212,175,55,0.35)';
+  ctx.font = '12px Arial,sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('♠ POKER CLUB 2026', W/2, fy + 52);
+
+  // ── exportar ──
+  canvas.toBlob(blob => {
+    const file = new File([blob], 'ranking-poker-2026.png', {type:'image/png'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({ files:[file], title:'Ranking Poker Club 2026' }).catch(()=>downloadImg(canvas));
+    } else {
+      downloadImg(canvas);
+    }
+  }, 'image/png');
+}
+
+function downloadImg(canvas){
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = 'ranking-poker-2026.png';
+  a.click();
+}
+
+// ── VITÓRIAS AUTOMÁTICAS ──────────────────────────────
+// Lê os valores de prêmio dos 3 primeiros e detecta empates
+// 1 vencedor sozinho = 1V; empate entre N = 0.5 cada (até 3)
+function recalcVitorias(){
+  const vals = [];
+  for(let pos=1; pos<=3; pos++){
+    const el = document.getElementById('prize-val-'+pos);
+    vals.push(el ? parseFloat(el.value)||0 : 0);
+  }
+
+  // agrupa por valor — quem tem o mesmo prêmio divide a vitória
+  // mas só conta como vitória quem está nas posições 1-3 E tem valor > 0
+  // Lógica: encontra o maior valor entre os 3 primeiros e verifica empates
+  const maxVal = Math.max(...vals.filter(v=>v>0));
+  if(maxVal <= 0){
+    for(let pos=1;pos<=3;pos++){
+      const el=document.getElementById('vit-display-'+pos);
+      if(el) el.textContent='—';
+    }
+    return;
+  }
+
+  // conta quantos têm o valor máximo (empate no 1º)
+  // para 2º e 3º: verificar empate entre eles se diferente do 1º
+  // Regra simplificada: empate = mesmo valor entre posições consecutivas
+  const vitMap = [0, 0, 0]; // índices 0,1,2 = pos 1,2,3
+
+  // encontra grupos de empate
+  const used = [false,false,false];
+  let i = 0;
+  while(i < 3){
+    if(used[i]){ i++; continue; }
+    const v = vals[i];
+    if(v <= 0){ i++; continue; }
+    // encontra todos com mesmo valor a partir de i
+    const group = [i];
+    for(let j=i+1; j<3; j++){
+      if(!used[j] && vals[j] === v) group.push(j);
+    }
+    const share = parseFloat((1/group.length).toFixed(2));
+    // normaliza: 1/1=1, 1/2=0.5, 1/3=0.33
+    group.forEach(idx=>{ vitMap[idx]=share; used[idx]=true; });
+    i++;
+  }
+
+  for(let pos=1;pos<=3;pos++){
+    const el=document.getElementById('vit-display-'+pos);
+    if(!el) continue;
+    const v=vitMap[pos-1];
+    if(v<=0){ el.textContent='—'; el.style.color='var(--muted)'; }
+    else {
+      el.textContent = v===1 ? '1V' : v+'V';
+      el.style.color = 'var(--gold)';
+    }
   }
 }
 </script>
