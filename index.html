@@ -1194,248 +1194,217 @@ loadData().then(()=>{
 
 // ── COMPARTILHAR RANKING (imagem canvas) ─────────────
 function shareRanking(){
-  const sorted = buildFullRanking();
-  const date   = new Date().toLocaleDateString('pt-BR');
+  try {
+    const sorted = buildFullRanking();
+    const date   = new Date().toLocaleDateString('pt-BR');
 
-  // ── dimensões ──
-  const W        = 800;
-  const PADDING  = 36;
-  const ROW_H    = 48;
-  const HEADER_H = 160;
-  const FOOTER_H = 72;
-  const H        = HEADER_H + sorted.length * ROW_H + FOOTER_H + PADDING;
+    // ── dimensões ──
+    const W        = 800;
+    const PAD      = 36;
+    const ROW_H    = 44;
+    const HEADER_H = 150;
+    const FOOTER_H = 70;
+    const H        = HEADER_H + sorted.length * ROW_H + FOOTER_H + PAD;
 
-  const canvas = document.createElement('canvas');
-  canvas.width  = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
+    const canvas  = document.createElement('canvas');
+    canvas.width  = W;
+    canvas.height = H;
+    const ctx     = canvas.getContext('2d');
 
-  // ── helpers ──
-  function rr(x, y, w, h, r){
-    ctx.beginPath();
-    ctx.moveTo(x+r,y);
-    ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
-    ctx.closePath();
-  }
+    // fundo
+    ctx.fillStyle = '#141414';
+    ctx.fillRect(0, 0, W, H);
 
-  // ── fundo principal ──
-  const bgGrad = ctx.createLinearGradient(0,0,0,H);
-  bgGrad.addColorStop(0,'#181818');
-  bgGrad.addColorStop(1,'#0f0f0f');
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0,0,W,H);
+    // borda dourada
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(3, 3, W-6, H-6);
 
-  // borda dourada
-  ctx.strokeStyle = 'rgba(212,175,55,0.5)';
-  ctx.lineWidth = 2;
-  rr(2,2,W-4,H-4,16);
-  ctx.stroke();
+    // header bg
+    ctx.fillStyle = '#1e1a08';
+    ctx.fillRect(3, 3, W-6, HEADER_H - 10);
 
-  // ── cabeçalho ──
-  // faixa dourada topo
-  const hGrad = ctx.createLinearGradient(0,0,W,0);
-  hGrad.addColorStop(0,'#1a1500');
-  hGrad.addColorStop(0.5,'#2e2400');
-  hGrad.addColorStop(1,'#1a1500');
-  ctx.fillStyle = hGrad;
-  rr(2,2,W-4,HEADER_H-10,14);
-  ctx.fill();
-
-  // título
-  ctx.fillStyle = '#d4af37';
-  ctx.font = 'bold 38px Georgia, serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('♠  HOME POKER DOS AMIGOS 2026', W/2, 60);
-
-  // subtítulo
-  ctx.fillStyle = '#aaa';
-  ctx.font = '18px Arial, sans-serif';
-  ctx.fillText('RANKING DA TEMPORADA', W/2, 92);
-
-  // linha separadora dourada
-  ctx.strokeStyle = 'rgba(212,175,55,0.6)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(PADDING, 108); ctx.lineTo(W-PADDING, 108); ctx.stroke();
-
-  // data + sessões
-  ctx.fillStyle = '#ccc';
-  ctx.font = '15px Arial, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(`📅 ${date}`, PADDING, 132);
-  ctx.textAlign = 'right';
-  ctx.fillText(`${cumSessions.length} sessões · ${sorted.length} atletas`, W-PADDING, 132);
-
-  // ── cabeçalho da tabela ──
-  const colY = HEADER_H + 8;
-  ctx.fillStyle = 'rgba(212,175,55,0.12)';
-  ctx.fillRect(PADDING, colY - 6, W - PADDING*2, 32);
-
-  ctx.fillStyle = '#d4af37';
-  ctx.font = 'bold 13px Arial, sans-serif';
-  ctx.textAlign = 'left';
-
-  // colunas: pos, nome, pts, reg, total, ganho
-  const cols = {
-    pos:   PADDING + 12,
-    nome:  PADDING + 72,
-    pts:   W - 340,
-    reg:   W - 260,
-    total: W - 180,
-    ganho: W - 80,
-  };
-
-  ctx.fillText('POS',   cols.pos,  colY+14);
-  ctx.fillText('ATLETA',cols.nome, colY+14);
-  ctx.textAlign = 'center';
-  ctx.fillText('PTS',   cols.pts,  colY+14);
-  ctx.fillText('REG',   cols.reg,  colY+14);
-  ctx.fillText('TOTAL', cols.total,colY+14);
-  ctx.textAlign = 'right';
-  ctx.fillText('GANHO R$', cols.ganho, colY+14);
-
-  // ── linhas dos jogadores ──
-  sorted.forEach((p, i) => {
-    const y    = HEADER_H + 40 + i * ROW_H;
-    const pos  = i + 1;
-    const total= p.pts + p.reg;
-    const even = i % 2 === 0;
-
-    // fundo linha
-    if(pos === 1){
-      ctx.fillStyle = 'rgba(212,175,55,0.13)';
-    } else if(pos === 2){
-      ctx.fillStyle = 'rgba(180,190,210,0.07)';
-    } else if(pos === 3){
-      ctx.fillStyle = 'rgba(190,130,70,0.07)';
-    } else {
-      ctx.fillStyle = even ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.15)';
-    }
-    ctx.fillRect(PADDING, y, W - PADDING*2, ROW_H - 4);
-
-    // barra lateral colorida top3
-    if(pos <= 3){
-      const barColors = ['#d4af37','#9aabb8','#b88a50'];
-      ctx.fillStyle = barColors[i];
-      ctx.fillRect(PADDING, y, 4, ROW_H - 4);
-    }
-
-    const textY = y + ROW_H/2 + 1;
-
-    // posição
-    const posColors = ['#d4af37','#9aabb8','#b88a50'];
-    ctx.fillStyle = pos <= 3 ? posColors[i] : '#888';
-    ctx.font = pos <= 3 ? 'bold 17px Georgia,serif' : '15px Arial,sans-serif';
+    // título
+    ctx.fillStyle = '#d4af37';
+    ctx.font = 'bold 32px serif';
     ctx.textAlign = 'center';
-    ctx.fillText(pos <= 3 ? ['1º','2º','3º'][i] : `${pos}º`, cols.pos + 14, textY + 5);
+    ctx.fillText('HOME POKER DOS AMIGOS 2026', W/2, 52);
 
-    // nome
-    ctx.fillStyle = '#f0ead8';
-    ctx.font = pos <= 3 ? 'bold 17px Arial,sans-serif' : '15px Arial,sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(cap(p.name), cols.nome, textY + 5);
+    ctx.fillStyle = '#aaaaaa';
+    ctx.font = '16px sans-serif';
+    ctx.fillText('RANKING DA TEMPORADA', W/2, 82);
 
-    // badges
-    let bx = cols.nome + ctx.measureText(cap(p.name)).width + 8;
-    if(p.vit > 0){
-      ctx.fillStyle = 'rgba(61,171,110,0.8)';
-      rr(bx, textY-10, 34, 18, 5); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
-      ctx.fillText(`⚡${p.vit}V`, bx+17, textY+3);
-      bx += 40;
-    }
-    if(p.leader > 0){
-      ctx.fillStyle = 'rgba(212,175,55,0.7)';
-      rr(bx, textY-10, 34, 18, 5); ctx.fill();
-      ctx.fillStyle = '#111'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
-      ctx.fillText(`★${p.leader}×`, bx+17, textY+3);
-      bx += 40;
-    }
-    if(p.bolha > 0){
-      ctx.fillStyle = 'rgba(224,80,64,0.7)';
-      rr(bx, textY-10, 28, 18, 5); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
-      ctx.fillText('🫧', bx+14, textY+4);
-    }
-
-    // pontos
-    ctx.fillStyle = pos === 1 ? '#d4af37' : '#ddd';
-    ctx.font = '15px Arial,sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(p.pts || '—', cols.pts, textY + 5);
-    ctx.fillText(p.reg,        cols.reg,  textY + 5);
-
-    // total em destaque
-    ctx.fillStyle = pos === 1 ? '#d4af37' : '#f0ead8';
-    ctx.font = pos <= 3 ? 'bold 17px Georgia,serif' : 'bold 15px Arial,sans-serif';
-    ctx.fillText(total, cols.total, textY + 5);
-
-    // ganho
-    ctx.fillStyle = p.ganho > 0 ? '#3dab6e' : '#666';
-    ctx.font = '14px Arial,sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(p.ganho > 0 ? 'R$ '+p.ganho.toLocaleString('pt-BR') : '—', cols.ganho, textY + 5);
-
-    // divisor
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    // linha
+    ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(PADDING, y + ROW_H - 4);
-    ctx.lineTo(W - PADDING, y + ROW_H - 4);
-    ctx.stroke();
-  });
+    ctx.beginPath(); ctx.moveTo(PAD, 98); ctx.lineTo(W-PAD, 98); ctx.stroke();
 
-  // ── rodapé ──
-  const fy = HEADER_H + 40 + sorted.length * ROW_H + 16;
+    // data
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Data: ' + date, PAD, 122);
+    ctx.textAlign = 'right';
+    ctx.fillText(cumSessions.length + ' sessoes  |  ' + sorted.length + ' atletas', W-PAD, 122);
 
-  ctx.strokeStyle = 'rgba(212,175,55,0.4)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(PADDING, fy); ctx.lineTo(W-PADDING, fy); ctx.stroke();
+    // ── header colunas ──
+    const cy = HEADER_H + 4;
+    ctx.fillStyle = 'rgba(212,175,55,0.15)';
+    ctx.fillRect(PAD, cy - 4, W - PAD*2, 28);
 
-  ctx.fillStyle = '#d4af37';
-  ctx.font = 'bold 16px Arial,sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(`💰 Prêmio acumulado: R$ ${last.pot.toLocaleString('pt-BR')}`, PADDING, fy + 28);
+    ctx.fillStyle = '#d4af37';
+    ctx.font = 'bold 12px sans-serif';
 
-  ctx.fillStyle = '#888';
-  ctx.font = '13px Arial,sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText(`🏆 Líder: ${sorted[0]?cap(sorted[0].name):'—'}`, W-PADDING, fy + 28);
+    const cPos   = PAD + 10;
+    const cNome  = PAD + 60;
+    const cPts   = W - 350;
+    const cReg   = W - 270;
+    const cTotal = W - 185;
+    const cGanho = W - 70;
 
-  ctx.fillStyle = 'rgba(212,175,55,0.35)';
-  ctx.font = '12px Arial,sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('♠ HOME POKER 2026', W/2, fy + 52);
+    ctx.textAlign = 'left';
+    ctx.fillText('POS',    cPos,   cy + 14);
+    ctx.fillText('ATLETA', cNome,  cy + 14);
+    ctx.textAlign = 'center';
+    ctx.fillText('PTS',    cPts,   cy + 14);
+    ctx.fillText('REG',    cReg,   cy + 14);
+    ctx.fillText('TOTAL',  cTotal, cy + 14);
+    ctx.textAlign = 'right';
+    ctx.fillText('GANHO R$', cGanho, cy + 14);
 
-  // ── exportar ──
-  // Converte para dataURL de forma síncrona para preservar o gesto do usuário no iOS
-  const dataURL = canvas.toDataURL('image/png');
+    // ── linhas ──
+    sorted.forEach((p, i) => {
+      const y     = HEADER_H + 36 + i * ROW_H;
+      const pos   = i + 1;
+      const total = p.pts + p.reg;
 
-  // Tenta compartilhar como arquivo (funciona em Android e alguns iOS)
-  if(navigator.share && navigator.canShare){
-    // Converte dataURL para blob/File sem callback assíncrono
-    const byteStr = atob(dataURL.split(',')[1]);
-    const arr = new Uint8Array(byteStr.length);
-    for(let i=0;i<byteStr.length;i++) arr[i]=byteStr.charCodeAt(i);
-    const file = new File([arr], 'ranking-home-poker-2026.png', {type:'image/png'});
-    if(navigator.canShare({files:[file]})){
-      navigator.share({ files:[file], title:'Home Poker dos Amigos 2026' })
-        .catch(()=>downloadImg(dataURL));
-      return;
+      // fundo linha alternado
+      if(pos === 1)      ctx.fillStyle = 'rgba(212,175,55,0.14)';
+      else if(pos === 2) ctx.fillStyle = 'rgba(180,190,210,0.07)';
+      else if(pos === 3) ctx.fillStyle = 'rgba(190,130,70,0.07)';
+      else               ctx.fillStyle = i%2===0 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.2)';
+      ctx.fillRect(PAD, y, W - PAD*2, ROW_H - 3);
+
+      // barra lateral top3
+      if(pos <= 3){
+        ctx.fillStyle = pos===1?'#d4af37':pos===2?'#9aabb8':'#b88a50';
+        ctx.fillRect(PAD, y, 4, ROW_H - 3);
+      }
+
+      const ty = y + ROW_H/2 + 5;
+
+      // posição
+      ctx.fillStyle = pos===1?'#d4af37':pos===2?'#9aabb8':pos===3?'#b88a50':'#888888';
+      ctx.font      = pos<=3 ? 'bold 16px serif' : '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(pos + 'o', cPos + 12, ty);
+
+      // nome
+      ctx.fillStyle = '#f0ead8';
+      ctx.font      = pos<=3 ? 'bold 15px sans-serif' : '14px sans-serif';
+      ctx.textAlign = 'left';
+      const nome    = cap(p.name);
+      ctx.fillText(nome, cNome, ty);
+
+      // badges simples em texto
+      let bx = cNome + ctx.measureText(nome).width + 8;
+      if(p.vit > 0){
+        ctx.fillStyle = '#3dab6e';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText('V' + p.vit, bx, ty - 2);
+        bx += ctx.measureText('V' + p.vit).width + 8;
+      }
+      if(p.bolha > 0){
+        ctx.fillStyle = '#e05040';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText('B' + p.bolha, bx, ty - 2);
+      }
+
+      // pontos
+      ctx.fillStyle = '#bbbbbb';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.pts || '0', cPts, ty);
+      ctx.fillText(p.reg,        cReg, ty);
+
+      // total
+      ctx.fillStyle = pos===1 ? '#d4af37' : '#f0ead8';
+      ctx.font = pos<=3 ? 'bold 16px serif' : 'bold 14px sans-serif';
+      ctx.fillText(total, cTotal, ty);
+
+      // ganho
+      ctx.fillStyle = p.ganho > 0 ? '#3dab6e' : '#555555';
+      ctx.font = '13px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(p.ganho > 0 ? 'R$ ' + p.ganho.toLocaleString('pt-BR') : '-', cGanho, ty);
+
+      // divisor
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(PAD, y + ROW_H - 3);
+      ctx.lineTo(W - PAD, y + ROW_H - 3);
+      ctx.stroke();
+    });
+
+    // ── rodapé ──
+    const fy = HEADER_H + 36 + sorted.length * ROW_H + 12;
+    ctx.strokeStyle = 'rgba(212,175,55,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD, fy); ctx.lineTo(W-PAD, fy); ctx.stroke();
+
+    const totalPot = sorted.reduce((s,p)=>s+(p.ganho||0),0);
+    ctx.fillStyle = '#d4af37';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Premio acumulado: R$ ' + totalPot.toLocaleString('pt-BR'), PAD, fy + 28);
+
+    ctx.fillStyle = '#888888';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Lider: ' + (sorted[0] ? cap(sorted[0].name) : '-'), W-PAD, fy + 28);
+
+    ctx.fillStyle = 'rgba(212,175,55,0.4)';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('HOME POKER DOS AMIGOS 2026', W/2, fy + 52);
+
+    // ── exportar ──
+    const dataURL = canvas.toDataURL('image/png');
+    console.log('dataURL length:', dataURL.length);
+    console.log('navigator.share:', !!navigator.share);
+    console.log('navigator.canShare:', !!navigator.canShare);
+
+    if(navigator.share && navigator.canShare){
+      const byteStr = atob(dataURL.split(',')[1]);
+      const arr = new Uint8Array(byteStr.length);
+      for(let i=0;i<byteStr.length;i++) arr[i]=byteStr.charCodeAt(i);
+      const file = new File([arr],'ranking-home-poker.png',{type:'image/png'});
+      console.log('canShare files:', navigator.canShare({files:[file]}));
+      if(navigator.canShare({files:[file]})){
+        navigator.share({files:[file],title:'Home Poker dos Amigos 2026'})
+          .then(()=>console.log('share success'))
+          .catch((e)=>{ console.log('share failed:', e); downloadImg(dataURL); });
+        return;
+      }
     }
-  }
+    console.log('falling back to download');
+    downloadImg(dataURL);
 
-  // Fallback: download direto
-  downloadImg(dataURL);
+  } catch(e) {
+    alert('Erro ao gerar imagem: ' + e.message);
+    console.error(e);
+  }
 }
 
 function downloadImg(dataURL){
+  console.log('downloadImg called');
   const a = document.createElement('a');
   a.href = dataURL;
   a.download = 'ranking-home-poker-2026.png';
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 }
 
 // ── VITÓRIAS AUTOMÁTICAS ──────────────────────────────
